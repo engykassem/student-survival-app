@@ -1,5 +1,5 @@
 # Lab Phase 1 — Student Survival Calculator
-### Saskatchewan Polytechnic — IBM Cloud Code Engine
+IBM Cloud Code Engine
 
 ---
 
@@ -234,4 +234,4 @@ survival rate — no terminal required.
 
 ---
 
-*Saskatchewan Polytechnic — Cloud Computing Lab Series*
+*Cloud Computing Lab Series*
