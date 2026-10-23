@@ -1,8 +1,5 @@
 import os
 import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 
 def clamp(val, lo, hi):
@@ -101,89 +98,19 @@ def get_verdict(pct, inputs):
     elif pct >= 30:
         status = "CRITICAL"
         msgs = [
-            f"You've had {coffee} coffees today. Your heart is filing a formal complaint.",
-            f"You haven't been outside in {inputs['days_since_outside']} days. Plants need sunlight. So do you.",
+            "You've had " + str(coffee) + " coffees today. Your heart is filing a formal complaint.",
+            "You haven't been outside in " + str(inputs["days_since_outside"]) + " days. Plants need sunlight. So do you.",
             "Your survival rate is lower than your Wi-Fi at 2am.",
         ]
     else:
         status = "SEND HELP"
         msgs = [
-            f"Only {pct}% survival. That is not a grade, that is a medical reading.",
-            f"You slept {sleep}h and somehow opened this app. Respect.",
+            "Only " + str(pct) + "% survival. That is not a grade, that is a medical reading.",
+            "You slept " + str(sleep) + "h and somehow opened this app. Respect.",
             "At this point you are not a student. You are a warning label.",
         ]
 
     return status, random.choice(msgs)
-
-
-def build_report(inputs, pct, scores):
-    status, message = get_verdict(pct, inputs)
-
-    filled = round(pct / 100 * 40)
-    bar    = "[" + "#" * filled + "-" * (40 - filled) + "] " + str(pct) + "%"
-
-    sep  = "=" * 55
-    sep2 = "-" * 55
-
-    exam_note = " + exam tomorrow!" if inputs["exam_tomorrow"] else ""
-
-    lines = [
-        sep,
-        "  STUDENT SURVIVAL CALCULATOR",
-        "  Saskatchewan Polytechnic - Code Engine Lab",
-        sep,
-        "",
-        "  Student      : " + inputs["name"],
-        "  Status       : " + status,
-        "",
-        "  SURVIVAL RATE",
-        "  " + sep2,
-        "  " + bar,
-        "",
-        '  "' + message + '"',
-        "",
-        "  BREAKDOWN",
-        "  " + sep2,
-        "  Sleep          : " + str(round(scores["sleep"]))   + "/100   (" + str(inputs["sleep_hours"])        + "h slept)",
-        "  Caffeine       : " + str(round(scores["caffeine"]))+ "/100   (" + str(inputs["coffee_cups"])        + " cups)",
-        "  Academic Load  : " + str(round(scores["pressure"]))+ "/100   (" + str(inputs["assignments_due"])    + " assignments" + exam_note + ")",
-        "  Touch Grass    : " + str(round(scores["outside"])) + "/100   (" + str(inputs["days_since_outside"]) + " day(s) inside)",
-        "  Nutrition      : " + str(round(scores["nutrition"]))+ "/100  (" + str(inputs["last_meal_hours"])    + "h since last meal)",
-        "",
-        "  " + sep2,
-        "  Disclaimer: This app is not responsible for failed exams,",
-        "  caffeine overdoses, or existential crises. Drink water.",
-        sep,
-    ]
-
-    return "\n".join(lines)
-
-
-def send_email(report, inputs, pct):
-    email_to       = env_str("EMAIL_TO", "")
-    email_password = env_str("EMAIL_PASSWORD", "")
-
-    if not email_to or not email_password:
-        print("EMAIL_TO or EMAIL_PASSWORD not set - skipping email.")
-        return
-
-    status, _ = get_verdict(pct, inputs)
-    subject   = "Your Survival Rate: " + str(pct) + "% - " + status
-
-    msg = MIMEMultipart()
-    msg["Subject"] = subject
-    msg["From"]    = email_to
-    msg["To"]      = email_to
-    msg.attach(MIMEText(report, "plain"))
-
-    try:
-        with smtplib.SMTP("smtp.office365.com", 587) as server:
-            server.starttls()
-            server.login(email_to, email_password)
-            server.sendmail(email_to, email_to, msg.as_string())
-        print("Email sent to " + email_to)
-    except Exception as e:
-        print("Email failed: " + str(e))
 
 
 def main():
@@ -197,11 +124,45 @@ def main():
         "last_meal_hours":    env_float("LAST_MEAL_HOURS",    4),
     }
 
-    pct, scores = calculate_survival(inputs)
-    report      = build_report(inputs, pct, scores)
+    pct, scores  = calculate_survival(inputs)
+    status, msg  = get_verdict(pct, inputs)
+
+    filled   = round(pct / 100 * 40)
+    bar      = "[" + "#" * filled + "-" * (40 - filled) + "] " + str(pct) + "%"
+    exam_note = " + exam tomorrow!" if inputs["exam_tomorrow"] else ""
+    sep      = "=" * 55
+    sep2     = "-" * 55
+
+    report = (
+        "\n" + sep + "\n"
+        "  STUDENT SURVIVAL CALCULATOR\n"
+        "  Saskatchewan Polytechnic - Code Engine Lab\n"
+        + sep + "\n"
+        "\n"
+        "  Student      : " + inputs["name"] + "\n"
+        "  Status       : " + status + "\n"
+        "\n"
+        "  SURVIVAL RATE\n"
+        "  " + sep2 + "\n"
+        "  " + bar + "\n"
+        "\n"
+        '  "' + msg + '"\n'
+        "\n"
+        "  BREAKDOWN\n"
+        "  " + sep2 + "\n"
+        "  Sleep         : " + str(round(scores["sleep"]))    + "/100  (" + str(inputs["sleep_hours"])        + "h slept)\n"
+        "  Caffeine      : " + str(round(scores["caffeine"])) + "/100  (" + str(inputs["coffee_cups"])        + " cups)\n"
+        "  Academic Load : " + str(round(scores["pressure"])) + "/100  (" + str(inputs["assignments_due"])    + " assignments" + exam_note + ")\n"
+        "  Touch Grass   : " + str(round(scores["outside"]))  + "/100  (" + str(inputs["days_since_outside"]) + " day(s) inside)\n"
+        "  Nutrition     : " + str(round(scores["nutrition"]))+ "/100  (" + str(inputs["last_meal_hours"])    + "h since last meal)\n"
+        "\n"
+        "  " + sep2 + "\n"
+        "  Disclaimer: This app is not responsible for failed exams,\n"
+        "  caffeine overdoses, or existential crises. Drink water.\n"
+        + sep + "\n"
+    )
 
     print(report)
-    send_email(report, inputs, pct)
 
 
 if __name__ == "__main__":
